@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tracker de Apuestas Deportivas</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 20px; background: #0f172a; color: #e5e7eb; }
+    h1, h2 { margin: 0 0 10px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .card { background: #020617; border-radius: 10px; padding: 16px; margin-bottom: 16px; border: 1px solid #1f2937; }
+    .grid { display: grid; gap: 12px; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    label { font-size: 14px; display: block; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #4b5563; background: #020617; color: #e5e7eb; font-size: 14px; }
+    input:focus, select:focus { outline: 1px solid #6366f1; border-color: #6366f1; }
+    button { padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .btn-primary { background: #22c55e; color: #022c22; }
+    .btn-danger { background: #ef4444; color: #fee2e2; }
+    .stats-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .stat { flex: 1 1 150px; background: #020617; border: 1px solid #1f2937; border-radius: 8px; padding: 10px; font-size: 13px; }
+    .stat-title { font-size: 12px; color: #9ca3af; margin-bottom: 4px; }
+    .stat-value { font-size: 16px; font-weight: 700; }
+    .positive { color: #22c55e; }
+    .negative { color: #ef4444; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    th, td { padding: 6px 8px; border-bottom: 1px solid #1f2937; text-align: left; white-space: nowrap; }
+    th { background: #020617; position: sticky; top: 0; z-index: 1; }
+    .table-wrapper { max-height: 280px; overflow: auto; border-radius: 8px; border: 1px solid #1f2937; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 11px; }
+    .badge-win { background: #064e3b; color: #6ee7b7; }
+    .badge-loss { background: #7f1d1d; color: #fecaca; }
+    @media (max-width: 600px) { body { padding: 12px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tracker de Apuestas Deportivas</h1>
+    <p style="color:#9ca3af;font-size:13px;margin:4px 0 16px;">
+      Registra tus apuestas en tiempo real, filtra por fechas y visualiza estadísticas con gráficas profesionales.
+    </p>
+
+    <!-- FILTROS POR FECHA -->
+    <div class="card">
+      <h2>Filtros de fecha</h2>
+      <div class="grid grid-2">
+        <div>
+          <label for="dateFrom">Desde (fecha)</label>
+          <input type="date" id="dateFrom" />
+        </div>
+        <div>
+          <label for="dateTo">Hasta (fecha)</label>
+          <input type="date" id="dateTo" />
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-primary" id="applyFilterBtn">Aplicar filtro</button>
+        <button class="btn-danger" id="clearFilterBtn">Quitar filtro</button>
+      </div>
+      <p style="color:#9ca3af;font-size:12px;margin-top:6px;">
+        El filtro se aplica a estadísticas, gráficas e historial. Si no seleccionas nada, se usan todas las apuestas.
+      </p>
+    </div>
+
+    <!-- FORMULARIO DE NUEVA APUESTA -->
+    <div class="card">
+      <h2>Nueva apuesta</h2>
+      <div class="grid grid-2">
+        <div>
+          <label for="analyst">Analista</label>
+          <select id="analyst">
+            <option value="Analista deportivo">Analista deportivo</option>
+            <option value="El Futbolero pro 2026">El Futbolero pro 2026</option>
+            <option value="Especialista en marcador">Especialista en marcador</option>
+          </select>
+        </div>
+        <div>
+          <label for="stake">Monto apostado (USD)</label>
+          <input type="number" id="stake" step="0.01" min="0" placeholder="Ej: 20" />
+        </div>
+        <div>
+          <label for="odds">Cuota (decimal)</label>
+          <input type="number" id="odds" step="0.01" min="1" placeholder="Ej: 1.35" />
+        </div>
+        <div>
+          <label for="result">Resultado</label>
+          <select id="result">
+            <option value="win">Ganada</option>
+            <option value="loss">Perdida</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-primary" id="addBetBtn">Registrar apuesta</button>
+        <button class="btn-danger" id="clearAllBtn">Borrar todo</button>
+      </div>
+      <p id="formError" style="color:#fca5a5;font-size:12px;margin-top:8px;display:none;">
+        Por favor completa todos los campos con valores válidos (mayores que 0).
+      </p>
+    </div>
+
+    <!-- ESTADÍSTICAS GLOBALES -->
+    <div class="card">
+      <h2>Estadísticas globales</h2>
+      <div class="stats-row" id="globalStats"></div>
+    </div>
+
+    <!-- ESTADÍSTICAS POR ANALISTA -->
+    <div class="card">
+      <h2>Estadísticas por analista</h2>
+      <div class="grid grid-2" id="analystStats"></div>
+    </div>
+
+    <!-- GRÁFICAS -->
+    <div class="card">
+      <h2>Gráficas de rendimiento</h2>
+      <div class="grid grid-2">
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;">Evolución de ganancia neta (acumulada) en el tiempo</p>
+          <canvas id="netProfitChart" height="200"></canvas>
+        </div>
+        <div>
+          <p style="font-size:12px;color:#9ca3af;margin:0 0 4px;">Ganancia neta por mes</p>
+          <canvas id="monthlyChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORIAL DE APUESTAS -->
+    <div class="card">
+      <h2>Historial de apuestas</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha y hora</th>
+              <th>Analista</th>
+              <th>Monto (USD)</th>
+              <th>Cuota</th>
+              <th>Resultado</th>
+              <th>Retorno (USD)</th>
+              <th>Ganancia neta (USD)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="betsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <script>
+    const STORAGE_KEY = "bet-tracker-entries-v1";
+
+    function loadBets() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(b => isFinite(b.stake) && isFinite(b.odds));
+      } catch (e) {
+        console.error("Error al leer localStorage", e);
+        return [];
+      }
+    }
+
+    function saveBets(bets) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(bets));
+    }
+
+    let bets = loadBets();
+
+    // Filtro fecha (en memoria)
+    let filterFrom = null;
+    let filterTo = null;
+
+    const analystSelect = document.getElementById("analyst");
+    const stakeInput = document.getElementById("stake");
+    const oddsInput = document.getElementById("odds");
+    const resultSelect = document.getElementById("result");
+    const addBetBtn = document.getElementById("addBetBtn");
+    const clearAllBtn = document.getElementById("clearAllBtn");
+    const formError = document.getElementById("formError");
+
+    const dateFromInput = document.getElementById("dateFrom");
+    const dateToInput = document.getElementById("dateTo");
+    const applyFilterBtn = document.getElementById("applyFilterBtn");
+    const clearFilterBtn = document.getElementById("clearFilterBtn");
+
+    const globalStatsDiv = document.getElementById("globalStats");
+    const analystStatsDiv = document.getElementById("analystStats");
+    const betsTableBody = document.getElementById("betsTableBody");
+
+    function formatMoney(num) {
+      if (!isFinite(num)) return "0.00";
+      return num.toFixed(2);
+    }
+
+    function applyDateFilter(array) {
+      return array.filter(bet => {
+        const d = new Date(bet.createdAt);
+        if (filterFrom && d < filterFrom) return false;
+        if (filterTo && d > filterTo) return false;
+        return true;
+      });
+    }
+
+    function computeStats(betsArray) {
+      const stats = {
+        totalBets: 0,
+        wins: 0,
+        losses: 0,
+        totalStake: 0,
+        totalReturn: 0,
+        netProfit: 0,
+        moneyWon: 0,
+        moneyLost: 0,
+        roi: 0
+      };
+
+      for (const b of betsArray) {
+        const stake = Number(b.stake);
+        const odds = Number(b.odds);
+        if (!isFinite(stake) || !isFinite(odds) || stake <= 0 || odds < 1) continue;
+
+        stats.totalBets++;
+        stats.totalStake += stake;
+
+        let ret = 0;
+        let profit = 0;
+        if (b.result === "win") {
+          ret = stake * odds;
+          profit = ret - stake;
+          stats.wins++;
+          stats.moneyWon += profit;
+        } else if (b.result === "loss") {
+          ret = 0;
+          profit = -stake;
+          stats.losses++;
+          stats.moneyLost += stake;
+        }
+
+        stats.totalReturn += ret;
+        stats.netProfit += profit;
+      }
+
+      if (stats.totalStake > 0) {
+        stats.roi = (stats.netProfit / stats.totalStake) * 100;
+      } else {
+        stats.roi = 0;
+      }
+      return stats;
+    }
+
+    function renderGlobalStats(filteredBets) {
+      const s = computeStats(filteredBets);
+      globalStatsDiv.innerHTML = "";
+
+      const items = [
+        { title: "Total de apuestas", value: s.totalBets },
+        { title: "Apuestas ganadas", value: s.wins },
+        { title: "Apuestas perdidas", value: s.losses },
+        { title: "Dinero apostado (USD)", value: formatMoney(s.totalStake) },
+        { title: "Dinero ganado (USD)", value: formatMoney(s.moneyWon), positive: s.moneyWon > 0 },
+        { title: "Dinero perdido (USD)", value: formatMoney(s.moneyLost), negative: s.moneyLost > 0 },
+        { title: "Ganancia neta (USD)", value: formatMoney(s.netProfit), positive: s.netProfit > 0, negative: s.netProfit < 0 },
+        { title: "ROI (%)", value: formatMoney(s.roi), positive: s.roi > 0, negative: s.roi < 0 }
+      ];
+
+      for (const it of items) {
+        const div = document.createElement("div");
+        div.className = "stat";
+        const valClass = it.positive ? "stat-value positive" : it.negative ? "stat-value negative" : "stat-value";
+        div.innerHTML = `
+          <div class="stat-title">${it.title}</div>
+          <div class="${valClass}">${it.value}</div>
+        `;
+        globalStatsDiv.appendChild(div);
+      }
+    }
+
+    function renderAnalystStats(filteredBets) {
+      analystStatsDiv.innerHTML = "";
+      const analysts = [
+        "Analista deportivo",
+        "El Futbolero pro 2026",
+        "Especialista en marcador"
+      ];
+
+      for (const name of analysts) {
+        const subset = filteredBets.filter(b => b.analyst === name);
+        const s = computeStats(subset);
+        const card = document.createElement("div");
+        card.className = "stat";
+
+        const netClass = s.netProfit > 0 ? "positive" : s.netProfit < 0 ? "negative" : "";
+        const roiClass = s.roi > 0 ? "positive" : s.roi < 0 ? "negative" : "";
+
+        card.innerHTML = `
+          <div class="stat-title" style="font-size:14px;font-weight:600;color:#e5e7eb;">
+            ${name}
+          </div>
+          <div style="margin-top:6px;font-size:12px;color:#9ca3af;">
+            Apuestas: <strong>${s.totalBets}</strong> | Ganadas: <strong>${s.wins}</strong> | Perdidas: <strong>${s.losses}</strong>
+          </div>
+          <div style="margin-top:6px;font-size:12px;">
+            Dinero apostado: <span>${formatMoney(s.totalStake)} USD</span>
+          </div>
+          <div style="margin-top:4px;font-size:12px;">
+            Dinero ganado: <span class="positive">${formatMoney(s.moneyWon)} USD</span>
+          </div>
+          <div style="margin-top:4px;font-size:12px;">
+            Dinero perdido: <span class="negative">${formatMoney(s.moneyLost)} USD</span>
+          </div>
+          <div style="margin-top:4px;font-size:12px;">
+            Ganancia neta: <span class="${netClass}">${formatMoney(s.netProfit)} USD</span>
+          </div>
+          <div style="margin-top:4px;font-size:12px;">
+            ROI: <span class="${roiClass}">${formatMoney(s.roi)} %</span>
+          </div>
+        `;
+        analystStatsDiv.appendChild(card);
+      }
+    }
+
+    function renderTable(filteredBets) {
+      betsTableBody.innerHTML = "";
+      filteredBets
+        .slice()
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .forEach(bet => {
+          const tr = document.createElement("tr");
+
+          const stake = Number(bet.stake);
+          const odds = Number(bet.odds);
+          let ret = 0;
+          let profit = 0;
+          if (bet.result === "win") {
+            ret = stake * odds;
+            profit = ret - stake;
+          } else {
+            ret = 0;
+            profit = -stake;
+          }
+
+          tr.innerHTML = `
+            <td>${new Date(bet.createdAt).toLocaleString()}</td>
+            <td>${bet.analyst}</td>
+            <td>${formatMoney(stake)}</td>
+            <td>${formatMoney(odds)}</td>
+            <td>
+              <span class="badge ${bet.result === "win" ? "badge-win" : "badge-loss"}">
+                ${bet.result === "win" ? "Ganada" : "Perdida"}
+              </span>
+            </td>
+            <td>${formatMoney(ret)}</td>
+            <td class="${profit > 0 ? "positive" : profit < 0 ? "negative" : ""}">
+              ${formatMoney(profit)}
+            </td>
+            <td><button class="btn-danger" data-id="${bet.id}" style="padding:4px 8px;font-size:11px;">X</button></td>
+          `;
+          betsTableBody.appendChild(tr);
+        });
+    }
+
+    // ==== GRÁFICAS (Chart.js) ====
+    const netProfitCtx = document.getElementById("netProfitChart").getContext("2d");
+    const monthlyCtx = document.getElementById("monthlyChart").getContext("2d");
+
+    let netProfitChart = null;
+    let monthlyChart = null;
+
+    function buildNetProfitSeries(filteredBets) {
+      const sorted = filteredBets.slice().sort((a, b) => a.createdAt - b.createdAt);
+      let accumulated = 0;
+      const labels = [];
+      const data = [];
+
+      for (const bet of sorted) {
+        const stake = Number(bet.stake);
+        const odds = Number(bet.odds);
+        if (!isFinite(stake) || !isFinite(odds) || stake <= 0 || odds < 1) continue;
+
+        let profit = 0;
+        if (bet.result === "win") {
+          const ret = stake * odds;
+          profit = ret - stake;
+        } else {
+          profit = -stake;
+        }
+        accumulated += profit;
+        labels.push(new Date(bet.createdAt).toLocaleString());
+        data.push(accumulated);
+      }
+      return { labels, data };
+    }
+
+    function buildMonthlySeries(filteredBets) {
+      const monthMap = {};
+      for (const bet of filteredBets) {
+        const d = new Date(bet.createdAt);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const key = year + "-" + String(month).padStart(2, "0");
+
+        const stake = Number(bet.stake);
+        const odds = Number(bet.odds);
+        if (!isFinite(stake) || !isFinite(odds) || stake <= 0 || odds < 1) continue;
+
+        let profit = 0;
+        if (bet.result === "win") {
+          const ret = stake * odds;
+          profit = ret - stake;
+        } else {
+          profit = -stake;
+        }
+        if (!monthMap[key]) monthMap[key] = 0;
+        monthMap[key] += profit;
+      }
+      const labels = Object.keys(monthMap).sort();
+      const data = labels.map(k => monthMap[k]);
+      return { labels, data };
+    }
+
+    function renderCharts(filteredBets) {
+      const netSeries = buildNetProfitSeries(filteredBets);
+      const monthlySeries = buildMonthlySeries(filteredBets);
+
+      if (netProfitChart) netProfitChart.destroy();
+      if (monthlyChart) monthlyChart.destroy();
+
+      netProfitChart = new Chart(netProfitCtx, {
+        type: "line",
+        data: {
+          labels: netSeries.labels,
+          datasets: [{
+            label: "Ganancia neta acumulada (USD)",
+            data: netSeries.data,
+            borderColor: "#22c55e",
+            backgroundColor: "rgba(34,197,94,0.2)",
+            tension: 0.25,
+            fill: true,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: "#e5e7eb" } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${formatMoney(ctx.parsed.y)} USD`
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: "#9ca3af" } },
+            y: { ticks: { color: "#9ca3af" } }
+          }
+        }
+      });
+
+      monthlyChart = new Chart(monthlyCtx, {
+        type: "bar",
+        data: {
+          labels: monthlySeries.labels,
+          datasets: [{
+            label: "Ganancia neta por mes (USD)",
+            data: monthlySeries.data,
+            backgroundColor: monthlySeries.data.map(v =>
+              v >= 0 ? "rgba(34,197,94,0.6)" : "rgba(248,113,113,0.7)"
+            ),
+            borderColor: monthlySeries.data.map(v =>
+              v >= 0 ? "#22c55e" : "#ef4444"
+            ),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: "#e5e7eb" } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${formatMoney(ctx.parsed.y)} USD`
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: "#9ca3af" } },
+            y: { ticks: { color: "#9ca3af" } }
+          }
+        }
+      });
+    }
+
+    function getFilteredBets() {
+      return applyDateFilter(bets);
+    }
+
+    function renderAll() {
+      const filtered = getFilteredBets();
+      renderGlobalStats(filtered);
+      renderAnalystStats(filtered);
+      renderTable(filtered);
+      renderCharts(filtered);
+    }
+
+    // Eventos formulario
+    addBetBtn.addEventListener("click", () => {
+      const analyst = analystSelect.value;
+      const stake = parseFloat(stakeInput.value);
+      const odds = parseFloat(oddsInput.value);
+      const result = resultSelect.value;
+
+      if (!analyst || !isFinite(stake) || !isFinite(odds) || stake <= 0 || odds < 1) {
+        formError.style.display = "block";
+        return;
+      }
+      formError.style.display = "none";
+
+      const bet = {
+        id: Date.now().toString() + Math.random().toString(16).slice(2),
+        analyst,
+        stake,
+        odds,
+        result,
+        createdAt: Date.now()
+      };
+
+      bets.push(bet);
+      saveBets(bets);
+      stakeInput.value = "";
+      oddsInput.value = "";
+      renderAll();
+    });
+
+    betsTableBody.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-id]");
+      if (!btn) return;
+      const id = btn.getAttribute("data-id");
+      bets = bets.filter(b => b.id !== id);
+      saveBets(bets);
+      renderAll();
+    });
+
+    clearAllBtn.addEventListener("click", () => {
+      if (!confirm("¿Seguro que deseas borrar todas las apuestas?")) return;
+      bets = [];
+      saveBets(bets);
+      renderAll();
+    });
+
+    // Eventos filtro
+    applyFilterBtn.addEventListener("click", () => {
+      const fromVal = dateFromInput.value;
+      const toVal = dateToInput.value;
+
+      filterFrom = fromVal ? new Date(fromVal + "T00:00:00") : null;
+      filterTo = toVal ? new Date(toVal + "T23:59:59") : null;
+      renderAll();
+    });
+
+    clearFilterBtn.addEventListener("click", () => {
+      dateFromInput.value = "";
+      dateToInput.value = "";
+      filterFrom = null;
+      filterTo = null;
+      renderAll();
+    });
+
+    // Render inicial
+    renderAll();
+  </script>
+</body>
+</html>
